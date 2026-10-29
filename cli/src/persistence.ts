@@ -22,6 +22,8 @@ interface Settings {
   apiUrl?: string
   // Extra headers for CLI -> hub requests (priority: env HAPI_EXTRA_HEADERS_JSON > this)
   extraHeaders?: unknown
+  // Runner exits when no sessions are tracked (priority: env HAPI_RUNNER_EXIT_WHEN_IDLE > this > false)
+  runnerExitWhenIdle?: boolean
   // Legacy field name (for migration, read-only)
   serverUrl?: string
 }

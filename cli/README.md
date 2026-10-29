@@ -246,6 +246,7 @@ composition owns the overall permission policy.
 - `HAPI_RUNNER_HEARTBEAT_INTERVAL` - Heartbeat interval in ms (default: 60000).
 - `HAPI_RUNNER_HTTP_TIMEOUT` - HTTP timeout for runner control in ms (default: 10000).
 - `HAPI_RUNNER_WEBHOOK_TIMEOUT_MS` - Session-start webhook timeout in ms (default: 15000); raise for slow agent startup/resume.
+- `HAPI_RUNNER_EXIT_WHEN_IDLE` - Also settable as `"runnerExitWhenIdle": true` in `~/.hapi/settings.json`; the env var wins (`1` enables, `0` disables). Set to `1` to make the runner exit after two consecutive heartbeats with no tracked sessions. Remote spawning from web/phone is unavailable until a runner is started again (e.g. by the next `hapi <agent>`).
 - `HAPI_DISABLE_VERSION_HANDOFF` - Set to `1` to disable automatic runner replacement on CLI binary changes.
 - `HAPI_RUNNER_SUPERVISED` - Set to `1` only when a supervisor restarts the runner after exit; enables the web Restart control's supervised path.
 

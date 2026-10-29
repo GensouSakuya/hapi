@@ -12,7 +12,7 @@ import { configuration } from '@/configuration';
 import packageJson from '../../package.json';
 import { getEnvironmentInfo } from '@/ui/doctor';
 import { spawnHappyCLI } from '@/utils/spawnHappyCLI';
-import { writeRunnerState, RunnerLocallyPersistedState, readRunnerState, acquireRunnerLock, releaseRunnerLock } from '@/persistence';
+import { writeRunnerState, RunnerLocallyPersistedState, readRunnerState, readSettings, acquireRunnerLock, releaseRunnerLock } from '@/persistence';
 import { getCliArgs } from '@/utils/cliArgs';
 import { getProcessStartMarker, isProcessAlive, isWindows, killProcess, killProcessByChildProcess, killProcessTreeByPid } from '@/utils/process';
 import { findStopSessionOrphanTargets, listWindowsProcessesWithCommandLine, reapRunnerSpawnedOrphans } from '@/runner/orphanReap';
@@ -1788,6 +1788,13 @@ export async function startRunner(options: { workspaceRoots?: string[] } = {}): 
     // the failure path with a backoff window.
     let nextHandoffAttemptAt = 0;
     const HANDOFF_RETRY_BACKOFF_MS = 5 * 60_000;
+    const IDLE_EXIT_HEARTBEATS = 2;
+    let idleHeartbeats = 0;
+    // Env wins over settings.json (`1` enables, `0` disables).
+    const exitWhenIdleEnv = process.env.HAPI_RUNNER_EXIT_WHEN_IDLE;
+    const exitWhenIdle = exitWhenIdleEnv === '1' || exitWhenIdleEnv === '0'
+      ? exitWhenIdleEnv === '1'
+      : (await readSettings()).runnerExitWhenIdle === true;
     const restartOnStaleVersionAndHeartbeat = setInterval(async () => {
       if (heartbeatRunning) {
         return;
@@ -1829,6 +1836,23 @@ export async function startRunner(options: { workspaceRoots?: string[] } = {}): 
                 : { type: 'error', errorMessage: `Session ${persisted.requestedSessionId} is still starting` }
             );
           }
+        }
+      }
+
+      // Optional idle exit: shut down once no tracked session has been alive for
+      // IDLE_EXIT_HEARTBEATS consecutive heartbeats. The streak gives a freshly
+      // started `hapi <agent>` time to report itself via /session-started.
+      if (exitWhenIdle) {
+        if (pidToTrackedSession.size === 0 && existingSessionIdByChildPid.size === 0) {
+          idleHeartbeats += 1;
+          if (idleHeartbeats >= IDLE_EXIT_HEARTBEATS) {
+            logger.debug(`[RUNNER RUN] No active sessions for ${idleHeartbeats} heartbeats; exiting (exit-when-idle enabled)`);
+            heartbeatRunning = false;
+            requestShutdown('hapi-cli');
+            return;
+          }
+        } else {
+          idleHeartbeats = 0;
         }
       }
 
