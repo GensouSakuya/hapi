@@ -1,5 +1,17 @@
 import { describe, expect, it } from 'vitest'
-import { buildHookSettings } from './generateHookSettings'
+import { buildClaudeHookCommand, buildHookSettings } from './generateHookSettings'
+
+describe('buildClaudeHookCommand', () => {
+    it('keeps Windows paths intact under bash by using quoted forward slashes', () => {
+        expect(buildClaudeHookCommand(['C:\\Users\\Sakuya\\.local\\bin\\hapi.exe', 'hook-forwarder', '--port', '123'], 'win32'))
+            .toBe('"C:/Users/Sakuya/.local/bin/hapi.exe" hook-forwarder --port 123')
+    })
+
+    it('does not rewrite backslashes on POSIX', () => {
+        expect(buildClaudeHookCommand(['/usr/bin/hapi', 'a b'], 'linux'))
+            .toBe('/usr/bin/hapi "a b"')
+    })
+})
 
 describe('buildHookSettings', () => {
     it('observes automatic compaction in both remote and local settings', () => {

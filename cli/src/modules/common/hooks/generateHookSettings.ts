@@ -3,7 +3,7 @@ import { writeFileSync, mkdirSync, unlinkSync, existsSync } from 'node:fs';
 import { configuration } from '@/configuration';
 import { logger } from '@/ui/logger';
 import { getHappyCliCommand } from '@/utils/spawnHappyCLI';
-import { shellJoin } from '@/modules/common/shellQuote';
+import { shellQuote } from '@/modules/common/shellQuote';
 import { LOCAL_PERMISSION_TIMEOUT_SECONDS } from '@/claude/utils/localPermissionProtocol';
 
 type HookCommandConfig = {
@@ -100,6 +100,21 @@ export function buildHookSettings(
     return settings;
 }
 
+/**
+ * Claude Code runs hook commands through bash on every platform (Git Bash on
+ * Windows), where unquoted backslashes are escapes and would mangle
+ * `C:\Users\...`. Use POSIX quoting and forward slashes, which Windows accepts.
+ */
+export function buildClaudeHookCommand(
+    parts: string[],
+    platform: NodeJS.Platform = process.platform
+): string {
+    const normalized = platform === 'win32'
+        ? parts.map((part) => part.replace(/\\/g, '/'))
+        : parts;
+    return normalized.map(shellQuote).join(' ');
+}
+
 export function generateHookSettingsFile(
     port: number,
     token: string,
@@ -119,7 +134,7 @@ export function generateHookSettingsFile(
         '--token',
         token
     ]);
-    const hookCommand = shellJoin([command, ...args]);
+    const hookCommand = buildClaudeHookCommand([command, ...args]);
 
     const settings = buildHookSettings(
         hookCommand,
